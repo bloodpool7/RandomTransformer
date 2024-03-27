@@ -52,7 +52,7 @@ class Experiment:
         labels = nist.filter_nist_log(self.label_path, visualize=self.exp_config.get('label_visu'))
 
         #Create a dataframe for each test, where each dataframe has all the queues, their corresponding p_value for the test, and the labels for that test
-        labels = [mean(map(int, [*x])) for x in labels]
+        # labels = [mean(map(int, [*x])) for x in labels]
         queues = [''.join(map(str, x)) for x in data_processor.queues]
     
         df = pd.DataFrame({'queue' : queues, 'label' : labels})

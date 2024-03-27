@@ -40,15 +40,21 @@ class TransformerModel(nn.Module):
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
         self.embedding = nn.Embedding(ntoken, d_model)
         self.d_model = d_model
-        self.linear = nn.Linear(d_model * 64, 1)
+        self.linear1 = nn.Linear(d_model * 64, d_model * 16)
+        self.linear2 = nn.Linear(d_model * 16, d_model)
+        self.linear3 = nn.Linear(d_model, 1)
 
         self.init_weights()
 
     def init_weights(self) -> None:
         initrange = 0.1
         self.embedding.weight.data.uniform_(-initrange, initrange)
-        self.linear.bias.data.zero_()
-        self.linear.weight.data.uniform_(-initrange, initrange)
+        self.linear1.bias.data.zero_()
+        self.linear1.weight.data.uniform_(-initrange, initrange)
+        self.linear2.bias.data.zero_()
+        self.linear2.weight.data.uniform_(-initrange, initrange)
+        self.linear3.bias.data.zero_()
+        self.linear3.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, src: Tensor, src_mask: Tensor = None) -> Tensor:
         """
@@ -68,7 +74,9 @@ class TransformerModel(nn.Module):
             src_mask = nn.Transformer.generate_square_subsequent_mask(len(src)).to(device)
         output = self.transformer_encoder(src, src_mask)
         output = torch.flatten(output, 1)
-        output = F.relu(self.linear(output))
+        output = F.relu(self.linear1(output))
+        output = F.relu(self.linear2(output))
+        output = F.relu(self.linear3(output))
         return output
 
 def tokenize(data) -> Tensor:
