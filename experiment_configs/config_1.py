@@ -18,7 +18,7 @@ def get_config(basepath):
         'label_visu': False,
 
         # tests
-        'tests': ['Frequency', 'BlockFrequency'],
+        'tests': ['Frequency', 'BlockFrequency', 'Runs', 'LongestRun', 'FFT', 'NonOverlappingTemplate', 'CumulativeSums'],
         'extra_nist_params': None,
         'fnist_basepath': os.path.join(basepath, 'Fast_NIST_STS_v6.0.1', 'NIST'),
                
@@ -43,12 +43,12 @@ def run_augmentation(basepath, queues):
     # aug_scripts.data_visu(queues[:len(queues[0])])
     # add augmentation
     template_path = "/Users/rishabhgoel/Projects/RandomnessTesting/Fast_NIST_STS_v6.0.1/NIST/templates/template9"
-    # auged_data.extend(aug_scripts.aug_frequency(queues, queues_percent=50, visualize=False))
-    # auged_data.extend(aug_scripts.aug_block(queues, queues_percent=50, visualize=False))
-    # auged_data.extend(aug_scripts.aug_block_runs(queues, queues_percent=50))
-    # auged_data.extend(aug_scripts.aug_longest_run(queues, queues_percent=50))
-    # auged_data.extend(aug_scripts.aug_aperiodic_templates(queues, template_path, queues_percent=50))
-    # auged_data.extend(aug_scripts.aug_rank(queues))
+    auged_data.extend(aug_scripts.aug_frequency(queues, queues_percent=50, visualize=False))
+    auged_data.extend(aug_scripts.aug_block(queues, queues_percent=50, visualize=False))
+    auged_data.extend(aug_scripts.aug_block_runs(queues, queues_percent=50))
+    auged_data.extend(aug_scripts.aug_longest_run(queues, queues_percent=50))
+    auged_data.extend(aug_scripts.aug_aperiodic_templates(queues, template_path, queues_percent=50))
+    auged_data.extend(aug_scripts.aug_rank(queues))
 
     auged_data.extend(queues)
     random.shuffle(auged_data)

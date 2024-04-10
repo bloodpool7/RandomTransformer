@@ -148,7 +148,6 @@ class FastNist:
         with open(label_file, 'w') as f:
             f.write('\n'.join(lables))
         
-        print(pvalues)
         return lables
 
     def label_visu(self, labels):

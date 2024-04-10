@@ -54,6 +54,7 @@ class Experiment:
         #Create a dataframe for each test, where each dataframe has all the queues, their corresponding p_value for the test, and the labels for that test
         # labels = [mean(map(int, [*x])) for x in labels]
         queues = [''.join(map(str, x)) for x in data_processor.queues]
+        labels = [''.join(map(str, x)) for x in labels]
     
         df = pd.DataFrame({'queue' : queues, 'label' : labels})
         return df

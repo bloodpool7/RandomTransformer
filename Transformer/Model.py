@@ -1,12 +1,14 @@
 import math
 import numpy as np
+import pandas as pd
 
 import torch
 from torch import nn, Tensor
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
-import torch.nn.functional as F
+from torch.utils.data import Dataset
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+# device = torch.device('cuda' if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else 'cpu')
+device = "cpu"
 
 class PositionalEncoding(nn.Module):
 
@@ -40,21 +42,20 @@ class TransformerModel(nn.Module):
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
         self.embedding = nn.Embedding(ntoken, d_model)
         self.d_model = d_model
-        self.linear1 = nn.Linear(d_model * 64, d_model * 16)
-        self.linear2 = nn.Linear(d_model * 16, d_model)
-        self.linear3 = nn.Linear(d_model, 1)
+        self.feedforward = nn.Sequential(
+                                        nn.Flatten(), 
+                                        nn.Linear(d_model * 64, d_model * 16), 
+                                        nn.ReLU(), 
+                                        nn.Linear(d_model * 16, d_model * 4), 
+                                        nn.ReLU(), 
+                                        nn.Linear(d_model * 4, 7), 
+                                        nn.Sigmoid())
 
         self.init_weights()
 
     def init_weights(self) -> None:
         initrange = 0.1
         self.embedding.weight.data.uniform_(-initrange, initrange)
-        self.linear1.bias.data.zero_()
-        self.linear1.weight.data.uniform_(-initrange, initrange)
-        self.linear2.bias.data.zero_()
-        self.linear2.weight.data.uniform_(-initrange, initrange)
-        self.linear3.bias.data.zero_()
-        self.linear3.weight.data.uniform_(-initrange, initrange)
 
     def forward(self, src: Tensor, src_mask: Tensor = None) -> Tensor:
         """
@@ -73,11 +74,19 @@ class TransformerModel(nn.Module):
             """
             src_mask = nn.Transformer.generate_square_subsequent_mask(len(src)).to(device)
         output = self.transformer_encoder(src, src_mask)
-        output = torch.flatten(output, 1)
-        output = F.relu(self.linear1(output))
-        output = F.relu(self.linear2(output))
-        output = F.relu(self.linear3(output))
+        output = self.feedforward(output)
         return output
+
+class QueueDataset(Dataset):
+    def __init__(self, data: pd.DataFrame):
+        self.queues = tokenize(data['queue'].values)
+        self.labels = torch.Tensor([list(map(int, list(x))) for x in data['label'].values]).to(device)
+
+    def __len__(self):
+        return len(self.queues)
+
+    def __getitem__(self, idx):
+        return self.queues[idx], self.labels[idx]
 
 def tokenize(data) -> Tensor:
     '''
@@ -90,7 +99,20 @@ def tokenize(data) -> Tensor:
         sixteen_bit_chunks = np.array([int(i, 2) for i in sixteen_bit_chunks])
         sixteen_bit_chunks = torch.LongTensor(sixteen_bit_chunks)
         sequence_length = len(sixteen_bit_chunks)
-        output = torch.cat((output, sixteen_bit_chunks))
+        output = torch.cat((output, sixteen_bit_chunks)).to(device)
     
     return output.reshape(-1, sequence_length)
 
+def F_score(output, label, threshold=0.5, beta=1): #Calculate the accuracy of the model
+    prob = output > threshold
+    label = label > threshold
+
+    TP = (prob & label).sum(1).float()
+    TN = ((~prob) & (~label)).sum(1).float()
+    FP = (prob & (~label)).sum(1).float()
+    FN = ((~prob) & label).sum(1).float()
+
+    precision = torch.mean(TP / (TP + FP + 1e-12))
+    recall = torch.mean(TP / (TP + FN + 1e-12))
+    F2 = (1 + beta**2) * precision * recall / (beta**2 * precision + recall + 1e-12)
+    return F2.mean(0)
