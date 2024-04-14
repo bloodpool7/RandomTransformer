@@ -7,6 +7,8 @@ from torch import nn, Tensor
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 from torch.utils.data import Dataset
 
+from sklearn.metrics import f1_score
+
 # device = torch.device('cuda' if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else 'cpu')
 device = "cpu"
 
@@ -31,7 +33,7 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe[:x.size(0)]
         return self.dropout(x)
 
-class TransformerModel(nn.Module):
+class RandomLM(nn.Module):
 
     def __init__(self, ntoken: int, d_model: int, nhead: int, d_hid: int,
                  nlayers: int, dropout: float = 0.5):
@@ -103,16 +105,13 @@ def tokenize(data) -> Tensor:
     
     return output.reshape(-1, sequence_length)
 
-def F_score(output, label, threshold=0.5, beta=1): #Calculate the accuracy of the model
+def F_score(output, label, threshold=0.5): #Calculate the accuracy of the model
     prob = output > threshold
     label = label > threshold
 
-    TP = (prob & label).sum(1).float()
-    TN = ((~prob) & (~label)).sum(1).float()
-    FP = (prob & (~label)).sum(1).float()
-    FN = ((~prob) & label).sum(1).float()
+    macro = f1_score(label, prob, average='macro', zero_division=0)
+    micro = f1_score(label, prob, average='micro', zero_division=0)
+    sample = f1_score(label, prob, average='samples', zero_division=0)
+    weighted = f1_score(label, prob, average='weighted', zero_division=0)
 
-    precision = torch.mean(TP / (TP + FP + 1e-12))
-    recall = torch.mean(TP / (TP + FN + 1e-12))
-    F2 = (1 + beta**2) * precision * recall / (beta**2 * precision + recall + 1e-12)
-    return F2.mean(0)
+    return macro, micro, sample, weighted
