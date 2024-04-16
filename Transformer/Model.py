@@ -1,16 +1,17 @@
 import math
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 import torch
 from torch import nn, Tensor
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 
 from sklearn.metrics import f1_score
 
 # device = torch.device('cuda' if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else 'cpu')
-device = "cpu"
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class PositionalEncoding(nn.Module):
 
@@ -36,7 +37,7 @@ class PositionalEncoding(nn.Module):
 class RandomLM(nn.Module):
 
     def __init__(self, ntoken: int, d_model: int, nhead: int, d_hid: int,
-                 nlayers: int, dropout: float = 0.5):
+                 nlayers: int, input_size: int = 64, dropout: float = 0.5):
         super().__init__()
         self.model_type = 'Transformer'
         self.pos_encoder = PositionalEncoding(d_model, dropout)
@@ -46,7 +47,7 @@ class RandomLM(nn.Module):
         self.d_model = d_model
         self.feedforward = nn.Sequential(
                                         nn.Flatten(), 
-                                        nn.Linear(d_model * 64, d_model * 16), 
+                                        nn.Linear(d_model * input_size, d_model * 16), 
                                         nn.ReLU(), 
                                         nn.Linear(d_model * 16, d_model * 4), 
                                         nn.ReLU(), 
@@ -115,3 +116,210 @@ def F_score(output, label, threshold=0.5): #Calculate the accuracy of the model
     weighted = f1_score(label, prob, average='weighted', zero_division=0)
 
     return macro, micro, sample, weighted
+
+def train(transformer: nn.Module, criterion: nn, optimizer: torch.optim, train_loader: DataLoader, val_loader: DataLoader, epochs: int = 5, threshold: float = 0.5):
+    train_losses = []
+    train_macro = []
+    train_micro = []
+    train_sample = []
+    train_weighted = []
+
+    val_losses = []
+    val_macro = []
+    val_micro = []
+    val_sample = []
+    val_weighted = []
+
+    batch_num = []
+
+    for epoch in range(epochs):
+        transformer.train()
+
+        train_losses_per_100 = []
+        train_macro_per_100 = []
+        train_micro_per_100 = []
+        train_sample_per_100 = []
+        train_weighted_per_100 = []
+
+        val_losses_per_100 = []
+        val_macro_per_100 = []
+        val_micro_per_100 = []
+        val_sample_per_100 = []
+        val_weighted_per_100 = []
+
+        for i, data in enumerate(train_loader):
+            #get the data
+            queues, labels = data
+            queues = queues.to(device)
+            labels = labels.to(device)
+
+            #forward pass
+            optimizer.zero_grad()
+            output = transformer(queues)
+            loss = criterion(output, labels)
+
+            #backward pass
+            loss.backward()
+            optimizer.step()
+
+            #metrics
+            macro, micro, sample, weighted = F_score(output, labels, threshold)
+
+            train_losses_per_100.append(loss.item())
+            train_macro_per_100.append(macro)
+            train_micro_per_100.append(micro)
+            train_sample_per_100.append(sample)
+            train_weighted_per_100.append(weighted)
+
+            #every 100 batches, log metrics and run validation
+            if (i+1) % 100 == 0:
+                train_losses.append(np.array(train_losses_per_100).mean())
+                train_macro.append(np.array(train_macro_per_100).mean())
+                train_micro.append(np.array(train_micro_per_100).mean())
+                train_sample.append(np.array(train_sample_per_100).mean())
+                train_weighted.append(np.array(train_weighted_per_100).mean())
+
+                train_losses_per_100 = []
+                train_macro_per_100 = []
+                train_micro_per_100 = []
+                train_sample_per_100 = []
+                train_weighted_per_100 = []
+
+                batch_num.append((i + 1) + (epoch) * (600))
+
+                #validate the model
+                transformer.eval()
+                for j, data in enumerate(val_loader):
+                    queues, labels = data
+                    queues = queues.to(device)
+                    labels = labels.to(device)
+
+                    #forward pass
+                    output = transformer(queues)
+                    loss = criterion(output, labels)
+
+                    #metrics
+                    macro, micro, sample, weighted = F_score(output, labels, threshold)
+
+                    val_losses_per_100.append(loss.item())
+                    val_macro_per_100.append(macro)
+                    val_micro_per_100.append(micro)
+                    val_sample_per_100.append(sample)
+                    val_weighted_per_100.append(weighted)
+
+                val_losses.append(np.array(val_losses_per_100).mean())
+                val_macro.append(np.array(val_macro_per_100).mean())
+                val_micro.append(np.array(val_micro_per_100).mean())
+                val_sample.append(np.array(val_sample_per_100).mean())
+                val_weighted.append(np.array(val_weighted_per_100).mean())
+                
+                val_losses_per_100 = []
+                val_macro_per_100 = []
+                val_micro_per_100 = []
+                val_sample_per_100 = []
+                val_weighted_per_100 = []
+                
+                print("epoch: {}, batch: {}, train loss: {:.3f}, train macro: {:.3f}, train micro: {:.3f}, train sample: {:.3f}, train weighted {:.3f}, val loss: {:.3f}, val macro: {:.3f}, val micro: {:.3f} val sample: {:.3f} val weighted: {:.3f}".format(
+                    epoch + 1, i + 1, train_losses[-1], train_macro[-1], train_micro[-1], train_sample[-1], train_weighted[-1], val_losses[-1], val_macro[-1], val_micro[-1], val_sample[-1], val_weighted[-1])
+                )
+                transformer.train()
+    
+    train_dict = {}
+    val_dict = {}
+
+    train_dict["losses"] = train_losses
+    train_dict["macro"] = train_macro
+    train_dict["micro"] = train_micro
+    train_dict["sample"] = train_sample
+    train_dict["weighted"] = train_weighted
+
+    val_dict["losses"] = val_losses
+    val_dict["macro"] = val_macro
+    val_dict["micro"] = val_micro
+    val_dict["sample"] = val_sample
+    val_dict["weighted"] = val_weighted
+
+    train_df = pd.DataFrame(train_dict, index = batch_num)
+    val_df = pd.DataFrame(val_dict, index = batch_num)
+
+    return train_df, val_df
+
+def test(transformer: nn.Module, criterion: nn, test_loader: DataLoader, threshold:float = 0.5):
+    transformer.eval()
+    test_losses = []
+    micro_f1s = []
+    macro_f1s = []
+    sample_f1s = []
+    weighted_f1s = []
+
+    for i, data in enumerate(test_loader):
+        queues, labels = data
+        queues = queues.to(device)
+        labels = labels.to(device)
+
+        #forward pass
+        output = transformer(queues)
+        loss = criterion(output, labels)
+
+        #metrics
+        test_losses.append(loss.item())
+        micro, macro, sample, weighted = F_score(output, labels, threshold)
+        micro_f1s.append(micro)
+        macro_f1s.append(macro)
+        sample_f1s.append(sample)
+        weighted_f1s.append(weighted)
+    
+    loss = np.array(test_losses).mean()
+    micro = np.array(micro_f1s).mean()
+    macro = np.array(macro_f1s).mean()
+    sample = np.array(sample_f1s).mean()
+    weighted = np.array(weighted_f1s).mean()
+    
+    print("Test Loss: {:.3f}".format(loss))
+    print("Micro F1: {:.3f}".format(micro))
+    print("Macro F1: {:.3f}".format(macro))
+    print("Sample F1: {:.3f}".format(sample))
+    print("Weighted F1: {:.3f}".format(weighted))
+
+    return loss, micro, macro, sample, weighted
+
+def plot_metrics(train_metrics: pd.DataFrame, val_metrics: pd.DataFrame):
+    a = plt.figure(1)
+    plt.plot(train_metrics.index, train_metrics['losses'], label = "Train Loss")
+    plt.plot(val_metrics.index, val_metrics['losses'], label = "Validation Loss")
+    plt.xlabel("Batch Number")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.show()
+
+    b = plt.figure(2)
+    plt.plot(train_metrics.index, train_metrics['sample'], label = "Train Sample F1")
+    plt.plot(val_metrics.index, val_metrics['sample'], label = "Validation Sample F1")
+    plt.xlabel("Batch Number")
+    plt.ylabel("Sample F1 Score")
+    plt.legend()
+    plt.show()
+
+    c = plt.figure(3)
+    plt.plot(train_metrics.index, train_metrics['macro'], label = "Train Macro F1")
+    plt.plot(val_metrics.index, val_metrics['macro'], label = "Validation Macro F1")
+    plt.xlabel("Batch Number")
+    plt.ylabel("Macro F1 Score")
+    plt.legend()
+    plt.show()
+
+    d = plt.figure(4)
+    plt.plot(train_metrics.index, train_metrics['micro'], label = "Train Micro F1")
+    plt.plot(val_metrics.index, val_metrics['micro'], label = "Validation Micro F1")
+    plt.xlabel("Batch Number")
+    plt.ylabel("Micro F1 Score")
+    plt.legend()
+    plt.show()
+
+    e = plt.figure(5)
+    plt.plot(train_metrics.index, train_metrics['weighted'], label = "Train Weighted F1")
+    plt.plot(val_metrics.index, val_metrics['weighted'], label = "Validation Weighted F1")
+    plt.xlabel("Batch Number")
+    plt.ylabel("Weighted F1 Score")
+    plt.legend()
+    plt.show()
