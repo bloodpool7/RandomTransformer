@@ -1,4 +1,7 @@
 import math
+import os 
+from zipfile import ZipFile
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -185,7 +188,7 @@ def train(transformer: nn.Module, criterion: nn, optimizer: torch.optim, train_l
                 train_sample_per_100 = []
                 train_weighted_per_100 = []
 
-                batch_num.append((i + 1) + (epoch) * (600))
+                batch_num.append(i + 1 + epoch * int(len(train_loader) / 100) * 100)
 
                 #validate the model
                 transformer.eval()
@@ -244,7 +247,7 @@ def train(transformer: nn.Module, criterion: nn, optimizer: torch.optim, train_l
 
     return train_df, val_df
 
-def test(transformer: nn.Module, criterion: nn, test_loader: DataLoader, threshold:float = 0.5):
+def inference(transformer: nn.Module, criterion: nn, test_loader: DataLoader, threshold:float = 0.5):
     transformer.eval()
     test_losses = []
     micro_f1s = []
@@ -275,7 +278,7 @@ def test(transformer: nn.Module, criterion: nn, test_loader: DataLoader, thresho
     sample = np.array(sample_f1s).mean()
     weighted = np.array(weighted_f1s).mean()
     
-    print("Test Loss: {:.3f}".format(loss))
+    print("Loss: {:.3f}".format(loss))
     print("Micro F1: {:.3f}".format(micro))
     print("Macro F1: {:.3f}".format(macro))
     print("Sample F1: {:.3f}".format(sample))
@@ -284,7 +287,7 @@ def test(transformer: nn.Module, criterion: nn, test_loader: DataLoader, thresho
     return loss, micro, macro, sample, weighted
 
 def plot_metrics(train_metrics: pd.DataFrame, val_metrics: pd.DataFrame):
-    a = plt.figure(1)
+    plt.figure(1)
     plt.plot(train_metrics.index, train_metrics['losses'], label = "Train Loss")
     plt.plot(val_metrics.index, val_metrics['losses'], label = "Validation Loss")
     plt.xlabel("Batch Number")
@@ -292,7 +295,7 @@ def plot_metrics(train_metrics: pd.DataFrame, val_metrics: pd.DataFrame):
     plt.legend()
     plt.show()
 
-    b = plt.figure(2)
+    plt.figure(2)
     plt.plot(train_metrics.index, train_metrics['sample'], label = "Train Sample F1")
     plt.plot(val_metrics.index, val_metrics['sample'], label = "Validation Sample F1")
     plt.xlabel("Batch Number")
@@ -300,7 +303,7 @@ def plot_metrics(train_metrics: pd.DataFrame, val_metrics: pd.DataFrame):
     plt.legend()
     plt.show()
 
-    c = plt.figure(3)
+    plt.figure(3)
     plt.plot(train_metrics.index, train_metrics['macro'], label = "Train Macro F1")
     plt.plot(val_metrics.index, val_metrics['macro'], label = "Validation Macro F1")
     plt.xlabel("Batch Number")
@@ -308,7 +311,7 @@ def plot_metrics(train_metrics: pd.DataFrame, val_metrics: pd.DataFrame):
     plt.legend()
     plt.show()
 
-    d = plt.figure(4)
+    plt.figure(4)
     plt.plot(train_metrics.index, train_metrics['micro'], label = "Train Micro F1")
     plt.plot(val_metrics.index, val_metrics['micro'], label = "Validation Micro F1")
     plt.xlabel("Batch Number")
@@ -316,10 +319,26 @@ def plot_metrics(train_metrics: pd.DataFrame, val_metrics: pd.DataFrame):
     plt.legend()
     plt.show()
 
-    e = plt.figure(5)
+    plt.figure(5)
     plt.plot(train_metrics.index, train_metrics['weighted'], label = "Train Weighted F1")
     plt.plot(val_metrics.index, val_metrics['weighted'], label = "Validation Weighted F1")
     plt.xlabel("Batch Number")
     plt.ylabel("Weighted F1 Score")
     plt.legend()
     plt.show()
+
+def model_save(transformer: nn.Module, path: str, train_metrics: pd.DataFrame = None, val_metrics: pd.DataFrame = None):
+    torch.save(transformer, "model.pt")
+
+    train_metrics.to_csv("train_metrics.csv") if train_metrics is not None else None
+    val_metrics.to_csv("val_metrics.csv") if val_metrics is not None else None
+
+    with ZipFile(path + ".zip", "w") as myzip:
+        myzip.write("train_metrics.csv")
+        myzip.write("val_metrics.csv")
+        myzip.write("model.pt")
+        myzip.close()
+
+    os.remove("train_metrics.csv")
+    os.remove("val_metrics.csv")
+    os.remove("model.pt")
