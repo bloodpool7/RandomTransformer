@@ -1,4 +1,5 @@
 __pycache__/
+temp/
 .DS_Store
 *.txt
 *.bin

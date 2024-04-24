@@ -48,7 +48,6 @@ def run_augmentation(basepath, queues):
     auged_data.extend(aug_scripts.aug_block_runs(queues, queues_percent=50))
     auged_data.extend(aug_scripts.aug_longest_run(queues, queues_percent=50))
     auged_data.extend(aug_scripts.aug_aperiodic_templates(queues, template_path, queues_percent=50))
-    auged_data.extend(aug_scripts.aug_rank(queues))
 
     auged_data.extend(queues)
     random.shuffle(auged_data)
