@@ -12,7 +12,7 @@ def get_config(basepath):
         'wd': os.path.join(basepath, 'experiments', 'test_1_size_1024_2'),
         # Raw data
         'input_data_file': os.path.join(basepath, 'binary_data', 'Qnumbers.bin'),
-        'chunk_size': 2048,
+        'chunk_size': 4096,
 
         # Processed label VISU
         'label_visu': False,
@@ -42,7 +42,7 @@ def run_augmentation(basepath, queues):
     # visualize original data
     # aug_scripts.data_visu(queues[:len(queues[0])])
     # add augmentation
-    template_path = "/Users/rishabhgoel/Projects/RandomTransformer/Fast_NIST_STS_v6.0.1/NIST/templates/template9"
+    template_path = "/home/rishabhg/Projects/RandomTransformer/Fast_NIST_STS_v6.0.1/NIST/templates/template9"
     auged_data.extend(aug_scripts.aug_frequency(queues, queues_percent=50, visualize=False))
     auged_data.extend(aug_scripts.aug_block(queues, queues_percent=50, visualize=False))
     auged_data.extend(aug_scripts.aug_block_runs(queues, queues_percent=50))

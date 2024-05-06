@@ -13,9 +13,6 @@ from torch.utils.data import Dataset, DataLoader
 
 from sklearn.metrics import f1_score
 
-# device = torch.device('cuda' if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else 'cpu')
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
 class PositionalEncoding(nn.Module):
 
     def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 5000):
@@ -40,7 +37,7 @@ class PositionalEncoding(nn.Module):
 class RandomLM(nn.Module):
 
     def __init__(self, ntoken: int, d_model: int, nhead: int, d_hid: int,
-                 nlayers: int, input_size: int = 64, dropout: float = 0.5):
+                 nlayers: int, input_size: int = 64, dropout: float = 0.5, averaging: bool = False):
         super().__init__()
         self.model_type = 'Transformer'
         self.pos_encoder = PositionalEncoding(d_model, dropout)
@@ -48,7 +45,13 @@ class RandomLM(nn.Module):
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
         self.embedding = nn.Embedding(ntoken, d_model)
         self.d_model = d_model
-        self.feedforward = nn.Sequential(
+        self.averaging = averaging
+        if self.averaging:
+            self.feedforward = nn.Sequential(
+                                        nn.Linear(d_model, 7), 
+                                        nn.Sigmoid())
+        else:
+            self.feedforward = nn.Sequential(
                                         nn.Flatten(), 
                                         nn.Linear(d_model * input_size, d_model * 16), 
                                         nn.ReLU(), 
@@ -78,15 +81,16 @@ class RandomLM(nn.Module):
             """Generate a square causal mask for the sequence. The masked positions are filled with float('-inf').
             Unmasked positions are filled with float(0.0).
             """
-            src_mask = nn.Transformer.generate_square_subsequent_mask(len(src)).to(device)
+            src_mask = nn.Transformer.generate_square_subsequent_mask(len(src))
         output = self.transformer_encoder(src, src_mask)
+        output = torch.mean(output, 1) if self.averaging else output
         output = self.feedforward(output)
         return output
 
 class QueueDataset(Dataset):
     def __init__(self, data: pd.DataFrame):
         self.queues = tokenize(data['queue'].values)
-        self.labels = torch.Tensor([list(map(int, list(x))) for x in data['label'].values]).to(device)
+        self.labels = torch.Tensor([list(map(int, list(x))) for x in data['label'].values])
 
     def __len__(self):
         return len(self.queues)
@@ -105,7 +109,7 @@ def tokenize(data) -> Tensor:
         sixteen_bit_chunks = np.array([int(i, 2) for i in sixteen_bit_chunks])
         sixteen_bit_chunks = torch.LongTensor(sixteen_bit_chunks)
         sequence_length = len(sixteen_bit_chunks)
-        output = torch.cat((output, sixteen_bit_chunks)).to(device)
+        output = torch.cat((output, sixteen_bit_chunks))
     
     return output.reshape(-1, sequence_length)
 
@@ -120,7 +124,7 @@ def F_score(output, label, threshold=0.5): #Calculate the accuracy of the model
 
     return macro, micro, sample, weighted
 
-def train(transformer: nn.Module, criterion: nn, optimizer: torch.optim, train_loader: DataLoader, val_loader: DataLoader, epochs: int = 5, threshold: float = 0.5):
+def train(transformer: nn.Module, criterion: nn, optimizer: torch.optim, train_loader: DataLoader, val_loader: DataLoader, epochs: int = 5, threshold: float = 0.5, device = 'cpu'):
     train_losses = []
     train_macro = []
     train_micro = []
@@ -166,7 +170,7 @@ def train(transformer: nn.Module, criterion: nn, optimizer: torch.optim, train_l
             optimizer.step()
 
             #metrics
-            macro, micro, sample, weighted = F_score(output, labels, threshold)
+            macro, micro, sample, weighted = F_score(output.to('cpu'), labels.to('cpu'), threshold)
 
             train_losses_per_100.append(loss.item())
             train_macro_per_100.append(macro)
@@ -202,7 +206,7 @@ def train(transformer: nn.Module, criterion: nn, optimizer: torch.optim, train_l
                     loss = criterion(output, labels)
 
                     #metrics
-                    macro, micro, sample, weighted = F_score(output, labels, threshold)
+                    macro, micro, sample, weighted = F_score(output.to('cpu'), labels.to('cpu'), threshold)
 
                     val_losses_per_100.append(loss.item())
                     val_macro_per_100.append(macro)
@@ -247,7 +251,7 @@ def train(transformer: nn.Module, criterion: nn, optimizer: torch.optim, train_l
 
     return train_df, val_df
 
-def inference(transformer: nn.Module, criterion: nn, test_loader: DataLoader, threshold:float = 0.5):
+def inference(transformer: nn.Module, criterion: nn, test_loader: DataLoader, threshold:float = 0.5, device = 'cpu'):
     transformer.eval()
     test_losses = []
     micro_f1s = []
@@ -266,7 +270,7 @@ def inference(transformer: nn.Module, criterion: nn, test_loader: DataLoader, th
 
         #metrics
         test_losses.append(loss.item())
-        micro, macro, sample, weighted = F_score(output, labels, threshold)
+        micro, macro, sample, weighted = F_score(output.to('cpu'), labels.to('cpu'), threshold)
         micro_f1s.append(micro)
         macro_f1s.append(macro)
         sample_f1s.append(sample)
