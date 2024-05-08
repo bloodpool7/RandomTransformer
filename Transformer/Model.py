@@ -1,5 +1,6 @@
 import math
 import os 
+import time 
 from zipfile import ZipFile
 
 import numpy as np
@@ -249,6 +250,8 @@ def train(transformer: nn.Module, criterion: nn, optimizer: torch.optim, train_l
     train_df = pd.DataFrame(train_dict, index = batch_num)
     val_df = pd.DataFrame(val_dict, index = batch_num)
 
+    del queues, labels, output, loss, transformer, criterion, optimizer
+
     return train_df, val_df
 
 def inference(transformer: nn.Module, criterion: nn, test_loader: DataLoader, threshold:float = 0.5, device = 'cpu'):
@@ -259,6 +262,7 @@ def inference(transformer: nn.Module, criterion: nn, test_loader: DataLoader, th
     sample_f1s = []
     weighted_f1s = []
 
+    start = time.time()
     for i, data in enumerate(test_loader):
         queues, labels = data
         queues = queues.to(device)
@@ -276,6 +280,7 @@ def inference(transformer: nn.Module, criterion: nn, test_loader: DataLoader, th
         sample_f1s.append(sample)
         weighted_f1s.append(weighted)
     
+    total_time = time.time() - start
     loss = np.array(test_losses).mean()
     micro = np.array(micro_f1s).mean()
     macro = np.array(macro_f1s).mean()
@@ -287,8 +292,9 @@ def inference(transformer: nn.Module, criterion: nn, test_loader: DataLoader, th
     print("Macro F1: {:.3f}".format(macro))
     print("Sample F1: {:.3f}".format(sample))
     print("Weighted F1: {:.3f}".format(weighted))
+    print("Time: {:.3f}".format(total_time))
 
-    return loss, micro, macro, sample, weighted
+    return loss, micro, macro, sample, weighted, total_time
 
 def plot_metrics(train_metrics: pd.DataFrame, val_metrics: pd.DataFrame):
     plt.figure(1)
@@ -331,18 +337,18 @@ def plot_metrics(train_metrics: pd.DataFrame, val_metrics: pd.DataFrame):
     plt.legend()
     plt.show()
 
-def model_save(transformer: nn.Module, path: str, train_metrics: pd.DataFrame = None, val_metrics: pd.DataFrame = None):
-    torch.save(transformer, "model.pt")
+def model_save(transformer: nn.Module, path: str, train_metrics: pd.DataFrame = None, val_metrics: pd.DataFrame = None, test_metrics: tuple = None) -> None:
+    torch.save(transformer, path + ".pt")
 
-    train_metrics.to_csv("train_metrics.csv") if train_metrics is not None else None
-    val_metrics.to_csv("val_metrics.csv") if val_metrics is not None else None
+    train_metrics.to_csv(path + "_train_metrics.csv") if train_metrics is not None else None
+    val_metrics.to_csv(path + "_val_metrics.csv") if val_metrics is not None else None
 
-    with ZipFile(path + ".zip", "w") as myzip:
-        myzip.write("train_metrics.csv")
-        myzip.write("val_metrics.csv")
-        myzip.write("model.pt")
-        myzip.close()
+    with open(path + "_test_metrics.txt", "w") as file:
+        file.write("Loss: {}\n".format(test_metrics[0]))
+        file.write("Micro F1: {}\n".format(test_metrics[1]))
+        file.write("Macro F1: {}\n".format(test_metrics[2]))
+        file.write("Sample F1: {}\n".format(test_metrics[3]))
+        file.write("Weighted F1: {}\n".format(test_metrics[4]))
+        file.write("Time: {}\n".format(test_metrics[5]))
 
-    os.remove("train_metrics.csv")
-    os.remove("val_metrics.csv")
-    os.remove("model.pt")
+    
