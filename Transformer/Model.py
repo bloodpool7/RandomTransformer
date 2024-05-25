@@ -351,4 +351,90 @@ def model_save(transformer: nn.Module, path: str, train_metrics: pd.DataFrame = 
         file.write("Weighted F1: {}\n".format(test_metrics[4]))
         file.write("Time: {}\n".format(test_metrics[5]))
 
+def visualize_exeperiment(path: str, tests: list[str], metric: str) -> None:
+    # x axis will be the the tests 
+    # y axis will be the metric 
+    # one graph for averaging and one for non averaging
+
+    #averaging graph 
+    match path:
+        case "EncoderResults/":
+            x_values = [1, 2, 3, 4, 5, 6, 7, 8]
+            x_label = "Encoder Layers"
+        case "HeadsResults/":
+            x_values = [1, 2, 4, 6, 8, 12, 16, 20, 24]
+            x_label = "Self-attention Heads"
+        case "EmbeddingsResults/":
+            x_values = [144, 192, 240, 288, 336, 384]
+            x_label = "Embedding size"
     
+    y_vals_512 = []
+    y_vals_1024 = []
+    y_vals_2048 = []
+
+    for test in tests: 
+        test_512 = path + "Averaging/" + test + "512_test_metrics.txt"
+        test_1024 = path + "Averaging/" + test + "1024_test_metrics.txt"
+        test_2048 = path + "Averaging/" + test + "2048_test_metrics.txt"
+
+        with open(test_512, "r") as file:
+            #get the specific metric out of loss micro f1 macro f1 sample f1 weighted f1 and time
+            for line in file.readlines():
+                if metric in line:
+                    y_vals_512.append(float(line.split(":")[1]))
+        
+        with open(test_1024, "r") as file:
+            for line in file.readlines():
+                if metric in line:
+                    y_vals_1024.append(float(line.split(":")[1]))
+        
+        with open(test_2048, "r") as file:
+            for line in file.readlines():
+                if metric in line:
+                    y_vals_2048.append(float(line.split(":")[1]))
+        
+    plt.figure(1)
+    plt.plot(x_values, y_vals_512, label = "512")
+    plt.plot(x_values, y_vals_1024, label = "1024")
+    plt.plot(x_values, y_vals_2048, label = "2048")
+    plt.xlabel(x_label)
+    plt.ylabel(metric)
+    plt.axhline(y=7.04, color='gray', linestyle='--', label='STS Time')
+    plt.legend() 
+    plt.show()
+
+    y_vals_512 = []
+    y_vals_1024 = []
+    y_vals_2048 = []
+
+    for test in tests: 
+        test_512 = path + "NonAveraging/" + test + "512_test_metrics.txt"
+        test_1024 = path + "NonAveraging/" + test + "1024_test_metrics.txt"
+        test_2048 = path + "NonAveraging/" + test + "2048_test_metrics.txt"
+
+        with open(test_512, "r") as file:
+            #get the specific metric out of loss micro f1 macro f1 sample f1 weighted f1 and time
+            for line in file.readlines():
+                if metric in line:
+                    y_vals_512.append(float(line.split(":")[1]))
+        
+        with open(test_1024, "r") as file:
+            for line in file.readlines():
+                if metric in line:
+                    y_vals_1024.append(float(line.split(":")[1]))
+        
+        with open(test_2048, "r") as file:
+            for line in file.readlines():
+                if metric in line:
+                    y_vals_2048.append(float(line.split(":")[1]))
+        
+    plt.figure(1)
+    plt.plot(x_values, y_vals_512, label = "512")
+    plt.plot(x_values, y_vals_1024, label = "1024")
+    plt.plot(x_values, y_vals_2048, label = "2048")
+    plt.xlabel(x_label)
+    plt.ylabel(metric)
+    plt.axhline(y=7.04, color='gray', linestyle='--', label='STS Time')
+    plt.legend() 
+    plt.show()
+

@@ -7,3 +7,6 @@ temp/
 *.pth
 *.pdf
 *.zip
+Transformer/EmbeddingsResults/
+Transformer/EncoderResults/
+Transformer/HeadsResults/
