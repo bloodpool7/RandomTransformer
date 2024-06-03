@@ -365,7 +365,7 @@ def visualize_exeperiment(path: str, tests: list[str], metric: str) -> None:
             x_values = [1, 2, 4, 6, 8, 12, 16, 20, 24]
             x_label = "Self-attention Heads"
         case "EmbeddingsResults/":
-            x_values = [144, 192, 240, 288, 336, 384]
+            x_values = [144, 192, 240, 288, 336, 384, 432, 480, 528]
             x_label = "Embedding size"
     
     y_vals_512 = []
@@ -399,7 +399,6 @@ def visualize_exeperiment(path: str, tests: list[str], metric: str) -> None:
     plt.plot(x_values, y_vals_2048, label = "2048")
     plt.xlabel(x_label)
     plt.ylabel(metric)
-    plt.axhline(y=7.04, color='gray', linestyle='--', label='STS Time')
     plt.legend() 
     plt.show()
 
@@ -434,7 +433,6 @@ def visualize_exeperiment(path: str, tests: list[str], metric: str) -> None:
     plt.plot(x_values, y_vals_2048, label = "2048")
     plt.xlabel(x_label)
     plt.ylabel(metric)
-    plt.axhline(y=7.04, color='gray', linestyle='--', label='STS Time')
     plt.legend() 
     plt.show()
 
