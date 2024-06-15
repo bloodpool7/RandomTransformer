@@ -5,8 +5,6 @@ temp/
 *.bin
 *.csv
 *.pth
+*.pt
 *.pdf
 *.zip
-Transformer/EmbeddingsResults/
-Transformer/EncoderResults/
-Transformer/HeadsResults/

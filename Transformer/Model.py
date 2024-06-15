@@ -394,12 +394,13 @@ def visualize_exeperiment(path: str, tests: list[str], metric: str) -> None:
                     y_vals_2048.append(float(line.split(":")[1]))
         
     plt.figure(1)
+    plt.tick_params(axis='both', which='major', labelsize=16)
     plt.plot(x_values, y_vals_512, label = "512")
     plt.plot(x_values, y_vals_1024, label = "1024")
     plt.plot(x_values, y_vals_2048, label = "2048")
-    plt.xlabel(x_label)
-    plt.ylabel(metric)
-    plt.legend() 
+    plt.xlabel(x_label, fontsize=19)
+    plt.ylabel(metric, fontsize=19)
+    plt.legend(fontsize = 16) 
     plt.show()
 
     y_vals_512 = []
@@ -428,11 +429,12 @@ def visualize_exeperiment(path: str, tests: list[str], metric: str) -> None:
                     y_vals_2048.append(float(line.split(":")[1]))
         
     plt.figure(1)
+    plt.tick_params(axis='both', which='major', labelsize=16)
     plt.plot(x_values, y_vals_512, label = "512")
     plt.plot(x_values, y_vals_1024, label = "1024")
     plt.plot(x_values, y_vals_2048, label = "2048")
-    plt.xlabel(x_label)
-    plt.ylabel(metric)
-    plt.legend() 
+    plt.xlabel(x_label, fontsize=19)
+    plt.ylabel(metric, fontsize=19)
+    plt.legend(fontsize = 16) 
     plt.show()
 
