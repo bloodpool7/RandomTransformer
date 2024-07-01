@@ -1,0 +1,6 @@
+Loss: 0.154
+Micro F1: 0.953
+Macro F1: 0.956
+Sample F1: 0.878
+Weighted F1: 0.956
+Time: 3.184

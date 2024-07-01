@@ -1,9 +1,11 @@
 __pycache__/
 temp/
 .DS_Store
-*.txt
+Transformer/Data/
+Transformer/TraindModels/
+experiments/
+Fast_NIST_STS_v6.0.1/NIST/data/
 *.bin
-*.csv
 *.pth
 *.pt
 *.pdf
