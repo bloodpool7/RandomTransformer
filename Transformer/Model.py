@@ -99,6 +99,17 @@ class QueueDataset(Dataset):
     def __getitem__(self, idx):
         return self.queues[idx], self.labels[idx]
 
+class QueueDataset_LSTM(Dataset):
+    def __init__(self, data: pd.DataFrame):
+        self.queues = torch.Tensor([list(map(int, list(x))) for x in data['queue'].values])
+        self.labels = torch.Tensor([list(map(int, list(x))) for x in data['label'].values])
+
+    def __len__(self):
+        return len(self.queues)
+
+    def __getitem__(self, idx):
+        return self.queues[idx], self.labels[idx]
+
 def tokenize(data) -> Tensor:
     '''
     Tokenize the data into 16 bit chunks
