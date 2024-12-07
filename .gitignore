@@ -1,5 +1,6 @@
 __pycache__/
 temp/
+env/
 .DS_Store
 Transformer/Data/
 Transformer/TraindModels/

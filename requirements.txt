@@ -1,0 +1,9 @@
+torch
+torchvision
+torchaudio
+pandas
+matplotlib
+requests
+fastapi
+uvicorn
+scikit-learn

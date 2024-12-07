@@ -38,7 +38,7 @@ class PositionalEncoding(nn.Module):
 class RandomLM(nn.Module):
 
     def __init__(self, ntoken: int, d_model: int, nhead: int, d_hid: int,
-                 nlayers: int, input_size: int = 64, dropout: float = 0.5, averaging: bool = False):
+                 nlayers: int, dropout: float = 0.5):
         super().__init__()
         self.model_type = 'Transformer'
         self.pos_encoder = PositionalEncoding(d_model, dropout)
@@ -46,20 +46,9 @@ class RandomLM(nn.Module):
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
         self.embedding = nn.Embedding(ntoken, d_model)
         self.d_model = d_model
-        self.averaging = averaging
-        if self.averaging:
-            self.feedforward = nn.Sequential(
-                                        nn.Linear(d_model, 7), 
-                                        nn.Sigmoid())
-        else:
-            self.feedforward = nn.Sequential(
-                                        nn.Flatten(), 
-                                        nn.Linear(d_model * input_size, d_model * 16), 
-                                        nn.ReLU(), 
-                                        nn.Linear(d_model * 16, d_model * 4), 
-                                        nn.ReLU(), 
-                                        nn.Linear(d_model * 4, 7), 
-                                        nn.Sigmoid())
+        self.feedforward = nn.Sequential(
+                                    nn.Linear(d_model, 7), 
+                                    nn.Sigmoid())
 
         self.init_weights()
 
@@ -84,7 +73,7 @@ class RandomLM(nn.Module):
             """
             src_mask = nn.Transformer.generate_square_subsequent_mask(len(src))
         output = self.transformer_encoder(src, src_mask)
-        output = torch.mean(output, 1) if self.averaging else output
+        output = torch.mean(output, 1)
         output = self.feedforward(output)
         return output
 
@@ -112,16 +101,16 @@ class QueueDataset_LSTM(Dataset):
 
 def tokenize(data) -> Tensor:
     '''
-    Tokenize the data into 16 bit chunks
+    Tokenize the data into 8 bit chunks
     '''
     output = torch.LongTensor()
     sequence_length = 0
     for queue in data:
-        sixteen_bit_chunks = [queue[i:i+16] for i in range(0, len(queue), 16)]
-        sixteen_bit_chunks = np.array([int(i, 2) for i in sixteen_bit_chunks])
-        sixteen_bit_chunks = torch.LongTensor(sixteen_bit_chunks)
-        sequence_length = len(sixteen_bit_chunks)
-        output = torch.cat((output, sixteen_bit_chunks))
+        eight_bit_chunks = [queue[i:i+8] for i in range(0, len(queue), 8)]
+        eight_bit_chunks = np.array([int(i, 2) for i in eight_bit_chunks])
+        eight_bit_chunks = torch.LongTensor(eight_bit_chunks)
+        sequence_length = len(eight_bit_chunks)
+        output = torch.cat((output, eight_bit_chunks))
     
     return output.reshape(-1, sequence_length)
 
@@ -265,7 +254,7 @@ def train(transformer: nn.Module, criterion: nn, optimizer: torch.optim, train_l
 
     return train_df, val_df
 
-def inference(transformer: nn.Module, criterion: nn, test_loader: DataLoader, threshold:float = 0.5, device = 'cpu'):
+def test(transformer: nn.Module, criterion: nn, test_loader: DataLoader, threshold:float = 0.5, device = 'cpu'):
     transformer.eval()
     test_losses = []
     micro_f1s = []
@@ -306,6 +295,19 @@ def inference(transformer: nn.Module, criterion: nn, test_loader: DataLoader, th
     print("Time: {:.3f}".format(total_time))
 
     return loss, micro, macro, sample, weighted, total_time
+
+def inference(transformer: nn.Module, queues: torch.Tensor, device = 'cpu'):
+    transformer.eval()
+
+    start = time.time()
+    queues = queues.to(device)
+
+    #forward pass
+    output = transformer(queues)
+
+    total_time = time.time() - start
+
+    return output, total_time
 
 def plot_metrics(train_metrics: pd.DataFrame, val_metrics: pd.DataFrame):
     plt.figure(1)
